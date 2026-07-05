@@ -1,6 +1,5 @@
 name: Predictive Maintenance CI/CD Pipeline
 
-# Trigger the pipeline on every push or pull request to the main branch
 on:
   push:
     branches: [ "main", "master" ]
@@ -8,34 +7,43 @@ on:
     branches: [ "main", "master" ]
 
 jobs:
-  build-and-test:
+  build-test-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-    # Step 1: Check out the repository code into the runner
+    # 1. Pull the codebase into the runner environment
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    # Step 2: Set up the correct Python environment version matching your notebook
+    # 2. Set up the exact Python version matrix
     - name: Set up Python 3.12
       uses: actions/setup-python@v5
       with:
         python-version: '3.12'
-        cache: 'pip' # Caches dependencies to make subsequent runs faster
+        cache: 'pip'
 
-    # Step 3: Install system-level dependencies required for XGBoost (libgomp)
+    # 3. Configure system prerequisites for XGBoost
     - name: Install System Dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y libgomp1
 
-    # Step 4: Upgrade core package managers and install your project requirements
+    # 4. Install python dependencies
     - name: Install Python Dependencies
       run: |
         python -m pip install --upgrade pip
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-    # Step 5: Run a basic environment compatibility sanity check
+    # 5. Continuous Integration (CI) - Environment Validation Check
     - name: Verify Environment Installation
       run: |
-        python -c "import pandas as pd; import numpy as np; import sklearn; import xgboost; print('✅ All dependencies successfully imported and validated!')"
+        python -c "import pandas as pd; import numpy as np; import sklearn; import xgboost; print('✅ Environment Verification Successful!')"
+
+    # 6. Continuous Deployment (CD) - Automatically Sync code to Hugging Face
+    # This step executes your deploy.py script using a secure GitHub secret token
+    - name: Push to Hugging Face Space
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+      env:
+        HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      run: |
+        python deploy.py "$HF_TOKEN"
